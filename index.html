@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Lazy Duck's Word Farm</title>
+<style>
+  :root{
+    --sky: #a9d8e6;
+    --sky-deep: #7cc0d6;
+    --grass: #5b8c5a;
+    --grass-deep: #45703f;
+    --barn: #b6482f;
+    --barn-deep: #8f3521;
+    --hay: #e8b74b;
+    --cream: #fdf6e6;
+    --soil: #5a3d2b;
+    --ink: #3a2c1f;
+    font-size: 18px;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family: -apple-system, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+    background:
+      radial-gradient(ellipse at top, var(--sky) 0%, var(--sky-deep) 55%, var(--grass-deep) 55%, var(--grass) 100%);
+    color: var(--ink);
+    min-height: 100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 18px 14px 40px;
+    user-select:none;
+  }
+
+  .clouds{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+  .cloud{ position:absolute; background:#fff; opacity:.75; border-radius:50%; filter:blur(1px); }
+
+  header{ position:relative; z-index:1; text-align:center; margin-bottom:10px; }
+  header h1{
+    font-size: 1.9rem;
+    margin: 4px 0 2px;
+    color: var(--barn-deep);
+    text-shadow: 2px 2px 0 #fff8;
+    letter-spacing: .5px;
+  }
+  header p{ margin:0; font-size:1rem; color: var(--soil); }
+
+  .tabs{
+    position:relative; z-index:1;
+    display:flex; gap:10px; margin: 16px 0 14px;
+  }
+  .tab{
+    border:none; cursor:pointer;
+    font-family:inherit; font-size:1.05rem; font-weight:700;
+    padding: 12px 22px;
+    border-radius: 14px 14px 4px 4px;
+    background: var(--hay);
+    color: var(--soil);
+    box-shadow: 0 4px 0 #b3872f, 0 6px 8px rgba(0,0,0,.15);
+    transition: transform .08s ease;
+  }
+  .tab:active{ transform: translateY(2px); box-shadow: 0 2px 0 #b3872f; }
+  .tab.active{
+    background: var(--barn);
+    color: #fff;
+    box-shadow: 0 4px 0 var(--barn-deep), 0 6px 8px rgba(0,0,0,.2);
+  }
+
+  .card{
+    position:relative; z-index:1;
+    background: var(--cream);
+    border-radius: 22px;
+    padding: 20px 18px 24px;
+    width: min(760px, 96vw);
+    box-shadow: 0 10px 0 #d8c79c, 0 16px 24px rgba(0,0,0,.2);
+    border: 3px solid #fff;
+  }
+
+  .progress-row{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 14px; gap: 10px;
+  }
+  .progress-label{ font-weight:700; color: var(--grass-deep); font-size: .95rem; }
+  .progress-track{
+    flex:1; height: 14px; background:#e6dcc0; border-radius: 10px; overflow:hidden;
+    border: 2px solid #d8c79c;
+  }
+  .progress-fill{
+    height:100%; width:0%; background: linear-gradient(90deg, var(--grass), var(--grass-deep));
+    transition: width .35s ease;
+  }
+
+  .instructions{
+    text-align:center; font-size: .98rem; color: var(--soil);
+    margin-bottom: 16px; line-height:1.4;
+  }
+  .instructions b{ color: var(--barn-deep); }
+
+  /* MATCH IT */
+  #match-grid{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 480px){
+    #match-grid{ grid-template-columns: repeat(3, 1fr); }
+  }
+  .chip{
+    font-family:inherit; font-size: 1.02rem; font-weight:700;
+    background:#fff; color: var(--ink);
+    border: 3px solid #dccfa6;
+    border-radius: 14px;
+    padding: 16px 6px;
+    min-height: 58px;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    cursor:pointer;
+    box-shadow: 0 3px 0 #dccfa6;
+    transition: transform .1s ease, background .15s ease, border-color .15s ease;
+  }
+  .chip:active{ transform: translateY(2px); }
+  .chip.selected{ background: var(--hay); border-color: var(--barn); }
+  .chip.solved{
+    background: var(--grass); color:#fff; border-color: var(--grass-deep);
+    cursor:default; box-shadow: 0 3px 0 var(--grass-deep);
+  }
+  .chip.wrong{ animation: shake .35s ease; background:#f3b3a6; border-color: var(--barn); }
+  @keyframes shake{
+    0%,100%{ transform: translateX(0); }
+    25%{ transform: translateX(-6px); }
+    75%{ transform: translateX(6px); }
+  }
+
+  #solved-words{
+    margin-top: 18px;
+    display:flex; flex-wrap:wrap; gap: 8px;
+    justify-content:center;
+  }
+  .solved-pill{
+    background: var(--barn); color:#fff; font-weight:700; font-size:.92rem;
+    padding: 7px 14px; border-radius: 999px;
+  }
+
+  /* SORT IT */
+  #sort-words{
+    display:flex; flex-wrap:wrap; gap: 10px; justify-content:center;
+    margin-bottom: 18px; min-height: 54px;
+  }
+  .baskets{
+    display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+  }
+  @media (max-width: 560px){
+    .baskets{ grid-template-columns: 1fr; }
+  }
+  .basket{
+    background:#fff; border: 3px dashed #cdbd8f; border-radius: 16px;
+    padding: 12px 8px; min-height: 130px;
+    display:flex; flex-direction:column; align-items:center;
+    cursor:pointer;
+  }
+  .basket.ready{ border-color: var(--barn); background:#fff6ee; }
+  .basket h3{
+    font-size: .88rem; margin: 2px 0 10px; text-align:center; color: var(--barn-deep);
+    line-height:1.25;
+  }
+  .basket .placed{
+    display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+  }
+  .basket .placed span{
+    background: var(--grass); color:#fff; font-size:.82rem; font-weight:700;
+    padding: 5px 10px; border-radius: 999px;
+  }
+
+  .finish{
+    text-align:center; margin-top: 18px; font-size: 1.05rem; font-weight:700;
+    color: var(--grass-deep); display:none;
+  }
+  .finish.show{ display:block; }
+
+  .reset-btn{
+    display:block; margin: 18px auto 0;
+    font-family:inherit; font-size:.95rem; font-weight:700;
+    background:#fff; color: var(--soil); border: 2px solid #dccfa6;
+    border-radius: 12px; padding: 9px 18px; cursor:pointer;
+  }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="clouds" id="clouds"></div>
+
+<header>
+  <h1>🦆 Lazy Duck's Word Farm</h1>
+  <p>Put two little words together to make one big word!</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" id="tab-match" onclick="showScreen('match')">🧩 Match It</button>
+  <button class="tab" id="tab-sort" onclick="showScreen('sort')">🧺 Sort It</button>
+</div>
+
+<!-- MATCH IT -->
+<section class="card" id="screen-match">
+  <div class="progress-row">
+    <span class="progress-label">Words matched</span>
+    <div class="progress-track"><div class="progress-fill" id="match-fill"></div></div>
+    <span class="progress-label" id="match-count">0 / 10</span>
+  </div>
+  <p class="instructions">Tap <b>two words</b> that go together to build a new word — like <b>farm + yard = farmyard</b>.</p>
+  <div id="match-grid"></div>
+  <div id="solved-words"></div>
+  <p class="finish" id="match-finish">🎉 You built all 10 farmyard words! Tap <b>Sort It</b> above to keep going.</p>
+  <button class="reset-btn" onclick="initMatch()">Start again</button>
+</section>
+
+<!-- SORT IT -->
+<section class="card hidden" id="screen-sort">
+  <div class="progress-row">
+    <span class="progress-label">Words sorted</span>
+    <div class="progress-track"><div class="progress-fill" id="sort-fill"></div></div>
+    <span class="progress-label" id="sort-count">0 / 7</span>
+  </div>
+  <p class="instructions">Tap a word below, then tap the basket that tells you <b>which small words help</b> give the big word its meaning.</p>
+  <div id="sort-words"></div>
+  <div class="baskets">
+    <div class="basket" data-basket="both" onclick="placeInBasket('both')">
+      <h3>Both small words help</h3>
+      <div class="placed" id="basket-both"></div>
+    </div>
+    <div class="basket" data-basket="first" onclick="placeInBasket('first')">
+      <h3>Only the first word helps</h3>
+      <div class="placed" id="basket-first"></div>
+    </div>
+    <div class="basket" data-basket="second" onclick="placeInBasket('second')">
+      <h3>Only the second word helps</h3>
+      <div class="placed" id="basket-second"></div>
+    </div>
+  </div>
+  <p class="finish" id="sort-finish">🎉 You sorted all 7 words! Tell your partner one word from each basket.</p>
+  <button class="reset-btn" onclick="initSort()">Start again</button>
+</section>
+
+<script>
+/* ---------- decorative clouds ---------- */
+(function(){
+  const wrap = document.getElementById('clouds');
+  const specs = [
+    {t:'6%', l:'8%', w:90, h:34}, {t:'10%', l:'62%', w:120, h:40},
+    {t:'3%', l:'40%', w:70, h:26}, {t:'16%', l:'80%', w:60, h:22}
+  ];
+  specs.forEach(s=>{
+    const c = document.createElement('div');
+    c.className='cloud';
+    c.style.top=s.t; c.style.left=s.l; c.style.width=s.w+'px'; c.style.height=s.h+'px';
+    wrap.appendChild(c);
+  });
+})();
+
+/* ---------- tab switching ---------- */
+function showScreen(name){
+  document.getElementById('screen-match').classList.toggle('hidden', name!=='match');
+  document.getElementById('screen-sort').classList.toggle('hidden', name!=='sort');
+  document.getElementById('tab-match').classList.toggle('active', name==='match');
+  document.getElementById('tab-sort').classList.toggle('active', name==='sort');
+}
+
+/* ---------- MATCH IT ---------- */
+const pairs = [
+  ['farm','house'], ['bee','hive'], ['hay','stack'], ['lady','bug'], ['earth','worm'],
+  ['rain','bow'], ['tooth','brush'], ['key','hole'], ['scare','crow'], ['sun','rise']
+];
+let matchState = {};
+
+function initMatch(){
+  const grid = document.getElementById('match-grid');
+  grid.innerHTML = '';
+  document.getElementById('solved-words').innerHTML = '';
+  document.getElementById('match-finish').classList.remove('show');
+
+  let words = [];
+  pairs.forEach((p, i)=>{
+    words.push({word:p[0], pairId:i});
+    words.push({word:p[1], pairId:i});
+  });
+  // shuffle
+  for(let i=words.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [words[i], words[j]] = [words[j], words[i]];
+  }
+
+  matchState = { words, selected:null, solvedCount:0 };
+
+  words.forEach((w, idx)=>{
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = w.word;
+    btn.dataset.idx = idx;
+    btn.onclick = () => onChipTap(idx);
+    grid.appendChild(btn);
+  });
+  updateMatchProgress();
+}
+
+function onChipTap(idx){
+  const chips = document.querySelectorAll('#match-grid .chip');
+  const chip = chips[idx];
+  if(chip.classList.contains('solved')) return;
+
+  if(matchState.selected === null){
+    matchState.selected = idx;
+    chip.classList.add('selected');
+    return;
+  }
+  if(matchState.selected === idx){
+    chip.classList.remove('selected');
+    matchState.selected = null;
+    return;
+  }
+
+  const first = matchState.words[matchState.selected];
+  const second = matchState.words[idx];
+  const firstChip = chips[matchState.selected];
+
+  if(first.pairId === second.pairId && first.word !== second.word){
+    // correct
+    chip.classList.remove('selected');
+    firstChip.classList.remove('selected');
+    chip.classList.add('solved');
+    firstChip.classList.add('solved');
+    matchState.selected = null;
+    matchState.solvedCount++;
+
+    const combo = document.createElement('span');
+    combo.className = 'solved-pill';
+    const ordered = pairs[first.pairId];
+    combo.textContent = ordered[0] + ordered[1];
+    document.getElementById('solved-words').appendChild(combo);
+
+    updateMatchProgress();
+    if(matchState.solvedCount === pairs.length){
+      document.getElementById('match-finish').classList.add('show');
+    }
+  } else {
+    chip.classList.add('wrong');
+    firstChip.classList.add('wrong');
+    setTimeout(()=>{
+      chip.classList.remove('wrong','selected');
+      firstChip.classList.remove('wrong','selected');
+    }, 400);
+    matchState.selected = null;
+  }
+}
+
+function updateMatchProgress(){
+  const pct = (matchState.solvedCount / pairs.length) * 100;
+  document.getElementById('match-fill').style.width = pct + '%';
+  document.getElementById('match-count').textContent = matchState.solvedCount + ' / ' + pairs.length;
+}
+
+/* ---------- SORT IT ---------- */
+const sortWords = [
+  {word:'keyhole', basket:'both'},
+  {word:'sunrise', basket:'both'},
+  {word:'beehive', basket:'both'},
+  {word:'bookworm', basket:'first'},
+  {word:'scarecrow', basket:'second'},
+  {word:'butterfly', basket:'second'},
+  {word:'ladybug', basket:'second'}
+];
+let sortState = {};
+
+function initSort(){
+  const wrap = document.getElementById('sort-words');
+  wrap.innerHTML = '';
+  ['basket-both','basket-first','basket-second'].forEach(id=>{
+    document.getElementById(id).innerHTML = '';
+  });
+  document.getElementById('sort-finish').classList.remove('show');
+
+  let words = sortWords.map((w,i)=>({...w, idx:i, placed:false}));
+  for(let i=words.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [words[i], words[j]] = [words[j], words[i]];
+  }
+  sortState = { words, selected:null, placedCount:0 };
+
+  words.forEach(w=>{
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.style.minWidth = '120px';
+    btn.textContent = w.word;
+    btn.dataset.idx = w.idx;
+    btn.onclick = () => onSortWordTap(w.idx, btn);
+    wrap.appendChild(btn);
+  });
+  updateSortProgress();
+}
+
+function onSortWordTap(idx, el){
+  const entry = sortState.words.find(w=>w.idx===idx);
+  if(entry.placed) return;
+  document.querySelectorAll('#sort-words .chip').forEach(c=>c.classList.remove('selected'));
+  document.querySelectorAll('.basket').forEach(b=>b.classList.remove('ready'));
+  sortState.selected = idx;
+  el.classList.add('selected');
+  document.querySelectorAll('.basket').forEach(b=>b.classList.add('ready'));
+}
+
+function placeInBasket(basketName){
+  if(sortState.selected === null) return;
+  const entry = sortState.words.find(w=>w.idx===sortState.selected);
+  const chipEl = document.querySelector('#sort-words .chip[data-idx="'+entry.idx+'"]');
+
+  document.querySelectorAll('.basket').forEach(b=>b.classList.remove('ready'));
+
+  if(entry.basket === basketName){
+    entry.placed = true;
+    chipEl.remove();
+    const pill = document.createElement('span');
+    pill.textContent = entry.word;
+    document.getElementById('basket-' + basketName).appendChild(pill);
+    sortState.placedCount++;
+    sortState.selected = null;
+    updateSortProgress();
+    if(sortState.placedCount === sortWords.length){
+      document.getElementById('sort-finish').classList.add('show');
+    }
+  } else {
+    chipEl.classList.add('wrong');
+    setTimeout(()=> chipEl.classList.remove('wrong'), 400);
+    chipEl.classList.remove('selected');
+    sortState.selected = null;
+  }
+}
+
+function updateSortProgress(){
+  const pct = (sortState.placedCount / sortWords.length) * 100;
+  document.getElementById('sort-fill').style.width = pct + '%';
+  document.getElementById('sort-count').textContent = sortState.placedCount + ' / ' + sortWords.length;
+}
+
+/* ---------- init ---------- */
+initMatch();
+initSort();
+</script>
+</body>
+</html>
